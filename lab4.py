@@ -31,6 +31,7 @@ def load_data(normalize=True, random_state=42):
     X_vals = X_enc.values.astype(float)
     if normalize:
         scaler = StandardScaler()
+        # data normalization
         X_scaled = scaler.fit_transform(X_vals)
         return X_scaled, y_enc, feature_names, scaler
     else:
@@ -58,13 +59,14 @@ class MLPInTorch(nn.Module):
     # Defining MLP module inheriting after nn.Module.
 
     def __init__(self, input_dim, hidden_dim=32):
+        # constructor of the higher class
         super(MLPInTorch, self).__init__()
         # Using nn.Sequential to define a network
         # 1 hidden layer, 32 neurons, ReLU activation
         self.network = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1),  # Exit layer
+            nn.Linear(hidden_dim, 1),  # Exit layer, returns 1 feature
             nn.Sigmoid()  # Sigmoid activation on exit
         )
 
@@ -82,6 +84,7 @@ def pytorch_experiments():
     # Loading data
     seed = 42
     X, y, feat_names, scaler = load_data(normalize=True, random_state=seed)
+    # 80% training data 20% testing
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed, stratify=y)
 
     input_dim = X_train.shape[1]
@@ -107,11 +110,11 @@ def pytorch_experiments():
 
     print("Uruchamianie eksperymentow PyTorch")
 
-    # Experiments loop
+    # Experiments loop over optimizers and batches
     for optimizer_name in optimizers_to_test:
         for batch_size in batch_sizes_to_test:
 
-            # Creating DataLoaders - new for every batch size
+            # Creating DataLoaders - new for every batch size (merging tensors and labels_
             train_dataset = TensorDataset(X_train_t, y_train_t)
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -123,6 +126,7 @@ def pytorch_experiments():
                 start_time = time.time()
 
                 # Each time creating new model for the epoch to reset the weights
+                # makes experiment independent of each other
                 model = MLPInTorch(input_dim, hidden_dim=32)
 
                 # Starting training
@@ -136,7 +140,7 @@ def pytorch_experiments():
                 with torch.no_grad():
                     probs_test_t = model(X_test_t.to(device))
 
-                # Converting back to NumPy for compute_metrics function
+                # Converting back to NumPy for calc_metrics function
                 probs_test_np = probs_test_t.cpu().numpy().ravel()
 
                 test_metrics = calc_metrics(y_test, probs_test_np)
@@ -182,7 +186,7 @@ def train_and_return_results(model, train_loader, val_loader, name_of_optimizer,
     train_loss_history = []
     val_loss_history = []
 
-    # Training loop
+    # Training loop. Iterating through all epochs
     for epoch in range(1, max_epochs + 1):
         model.train()
         running_loss = 0.0
@@ -205,6 +209,7 @@ def train_and_return_results(model, train_loader, val_loader, name_of_optimizer,
             # updating weights
             optimizer.step()
 
+            # adding loss from batch to the sum
             running_loss += loss.item()
 
         # saving epochs loss
@@ -214,6 +219,7 @@ def train_and_return_results(model, train_loader, val_loader, name_of_optimizer,
         # Evaluation on validation set
         model.eval()
         running_val_loss = 0.0
+        #  turning off calculating gradients. Saves time
         with torch.no_grad():
             for inputs_val, labels_val in val_loader:
                 inputs_val, labels_val = inputs_val.to(device), labels_val.to(device)
@@ -241,6 +247,7 @@ if __name__ == "__main__":
     print("Wszystkie wyniki eksperymentow")
 
     print("=" * 50)
+    # printing whole results table
     print(results_df.to_string())
 
     results_df.to_csv("pytorch_results.csv", index=False)
