@@ -244,47 +244,51 @@ def train_and_return_results(model, train_loader, val_loader, name_of_optimizer,
     return model, {'train_loss': train_loss_history, 'val_loss': val_loss_history, 'epochs': epoch}
 
 
-def plot_loss_curves(df):
+def plot_learning_curves(df):
 
-    print("\nGenerowanie wykresów krzywych strat...")
-
+    print("\nGenerowanie wykresów krzywych uczenia (train vs val)...")
 
     optimizers = df['optimizer'].unique()
 
-
     for opt in optimizers:
-
-        plt.figure(figsize=(12, 8))
-
+        plt.figure(figsize=(14, 9))
 
         df_opt = df[df['optimizer'] == opt]
 
 
         for index, row in df_opt.iterrows():
 
-            label = f"Batch: {row['batch_size']}, LR: {row['lr']}"
+            base_label = f"Batch: {row['batch_size']}, LR: {row['lr']}"
 
 
+            train_loss_history = row['train_loss_history']
             val_loss_history = row['val_loss_history']
 
 
-            plt.plot(val_loss_history, label=label, alpha=0.8)
+            plt.plot(train_loss_history, label=f"TRAIN {base_label}", linestyle='--', alpha=0.7)
 
 
-        plt.title(f"Krzywe strat walidacyjnych (val_loss) dla {opt}")
+            plt.plot(val_loss_history, label=f"VAL {base_label}", linestyle='-', alpha=0.9, linewidth=2)
+
+
+        plt.title(f"Krzywe uczenia (Train vs Val Loss) dla {opt}")
         plt.xlabel("Epoka")
         plt.ylabel("Strata (Loss)")
-        plt.legend(loc='upper right')
-        plt.grid(True)
 
+
+        plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
+
+        plt.grid(True)
 
         plt.ylim(0, 2.0)
 
 
-        plot_filename = f"loss_curve_{opt}.png"
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+        # Saving plot to file
+        plot_filename = f"learning_curve_{opt}.png"
         plt.savefig(plot_filename)
         print(f"Zapisano wykres: {plot_filename}")
-
 
 
 if __name__ == "__main__":
@@ -309,4 +313,4 @@ if __name__ == "__main__":
     # print("=" * 50)
     print("------------------------------------")
     print(results_df.sort_values(by='test_auc', ascending=False).head(5).to_string())
-    plot_loss_curves(results_df)
+    plot_learning_curves(results_df)
