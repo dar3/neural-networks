@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+import matplotlib.pyplot as plt
 
 
 def load_data(normalize=True, random_state=42):
@@ -23,6 +24,7 @@ def load_data(normalize=True, random_state=42):
     categorical_cols = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
     dataset[categorical_cols] = dataset[categorical_cols].fillna('NaN').astype(str)
 
+    # One-Hot Encoding
     dataset_enc = pd.get_dummies(dataset, columns=categorical_cols, drop_first=False)
 
     X_enc = dataset_enc.drop('target', axis=1)
@@ -39,6 +41,7 @@ def load_data(normalize=True, random_state=42):
 
 
 def calc_metrics(y_true, probs, threshold=0.5):
+    # changing probability to conf. decisions
     preds = (probs >= threshold).astype(int)
     acc = accuracy_score(y_true, preds)
     precision = precision_score(y_true, preds, zero_division=0)
@@ -71,6 +74,7 @@ class MLPInTorch(nn.Module):
         )
 
     # going forward
+    # takes input data x and forwards them through nn.Sequential
     def forward(self, x):
         return self.network(x)
 
@@ -155,7 +159,9 @@ def pytorch_experiments():
                     'test_acc': test_metrics['accuracy'],
                     'test_auc': test_metrics['auc'],
                     'test_f1': test_metrics['f1'],
-                    'time_s': elapsed
+                    'time_s': elapsed,
+                    'train_loss_history': history['train_loss'],
+                    'val_loss_history': history['val_loss']
                 }
                 results.append(res)
 
@@ -238,6 +244,49 @@ def train_and_return_results(model, train_loader, val_loader, name_of_optimizer,
     return model, {'train_loss': train_loss_history, 'val_loss': val_loss_history, 'epochs': epoch}
 
 
+def plot_loss_curves(df):
+
+    print("\nGenerowanie wykresów krzywych strat...")
+
+
+    optimizers = df['optimizer'].unique()
+
+
+    for opt in optimizers:
+
+        plt.figure(figsize=(12, 8))
+
+
+        df_opt = df[df['optimizer'] == opt]
+
+
+        for index, row in df_opt.iterrows():
+
+            label = f"Batch: {row['batch_size']}, LR: {row['lr']}"
+
+
+            val_loss_history = row['val_loss_history']
+
+
+            plt.plot(val_loss_history, label=label, alpha=0.8)
+
+
+        plt.title(f"Krzywe strat walidacyjnych (val_loss) dla {opt}")
+        plt.xlabel("Epoka")
+        plt.ylabel("Strata (Loss)")
+        plt.legend(loc='upper right')
+        plt.grid(True)
+
+
+        plt.ylim(0, 2.0)
+
+
+        plot_filename = f"loss_curve_{opt}.png"
+        plt.savefig(plot_filename)
+        print(f"Zapisano wykres: {plot_filename}")
+
+
+
 if __name__ == "__main__":
     # running all experiments
     results_df = pytorch_experiments()
@@ -254,7 +303,10 @@ if __name__ == "__main__":
     print(f"\nWyniki zapisane do 'pytorch_results.csv'")
 
     # top 5 configurations
-    print("\n" + "=" * 50)
+    # print("\n" + "=" * 50)
+    print("\n" + "---------------------------------")
     print("Najlepsze konfiguracje (sortowane po test_auc)")
-    print("=" * 50)
+    # print("=" * 50)
+    print("------------------------------------")
     print(results_df.sort_values(by='test_auc', ascending=False).head(5).to_string())
+    plot_loss_curves(results_df)
