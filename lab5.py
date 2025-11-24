@@ -10,6 +10,9 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import time
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import numpy as np
+import numpy as np
 
 
 # Data preparing
@@ -73,12 +76,50 @@ class FMLP(nn.Module):
         return self.network(x)
 
 
-def model_training(model, train_loader, test_loader, epochs, lr, train_noise_std=0.0, test_noise_std=0.0):
+# def train_model()(model, train_loader, test_loader, epochs, lr, train_noise_std=0.0, test_noise_std=0.0):
+#     model.to(device)
+#     criterion = nn.CrossEntropyLoss()
+#     optimizer = optim.Adam(model.parameters(), lr=lr)
+#
+#     history = {'train_loss': [], 'test_acc': []}
+#
+#     for epoch in range(epochs):
+#         model.train()
+#         running_loss = 0.0
+#
+#         for images, labels in train_loader:
+#             images, labels = images.to(device), labels.to(device)
+#
+#             # Adding noise to train data. Experiment with noise
+#             if train_noise_std > 0:
+#                 images = add_gauss_noise(images, train_noise_std)
+#
+#             optimizer.zero_grad()
+#             outputs = model(images)
+#             loss = criterion(outputs, labels)
+#             loss.backward()
+#             optimizer.step()
+#             running_loss += loss.item()
+#
+#         avg_loss = running_loss / len(train_loader)
+#         history['train_loss'].append(avg_loss)
+#
+#         # Ewaluacja
+#         acc = evaluate_model(model, test_loader, test_noise_std)
+#         history['test_acc'].append(acc)
+#
+#     return history
+
+def train_model(model, train_loader, test_loader, epochs, lr, train_noise_std=0.0, test_noise_std=0.0):
     model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     history = {'train_loss': [], 'test_acc': []}
+
+    print(
+        f"{'Epoch':^5} | {'Train Loss':^10} | {'Test Acc':^10} | {'Test F1':^10} | {'Precision':^10} | {'Recall':^10}")
+    print("-" * 75)
 
     for epoch in range(epochs):
         model.train()
@@ -87,7 +128,6 @@ def model_training(model, train_loader, test_loader, epochs, lr, train_noise_std
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
 
-            # Adding noise to train data. Experiment with noise
             if train_noise_std > 0:
                 images = add_gauss_noise(images, train_noise_std)
 
@@ -101,29 +141,62 @@ def model_training(model, train_loader, test_loader, epochs, lr, train_noise_std
         avg_loss = running_loss / len(train_loader)
         history['train_loss'].append(avg_loss)
 
-        # Ewaluacja
-        acc = evaluate_model(model, test_loader, test_noise_std)
-        history['test_acc'].append(acc)
+        # Ewaluacja (zwraca teraz słownik metryk)
+        metrics = evaluate_model(model, test_loader, test_noise_std)
+        history['test_acc'].append(metrics['acc'])  # Zachowujemy zgodność z wykresami
+
+        # Wypisywanie statystyk do konsoli
+        print(
+            f"{epoch + 1:^5} | {avg_loss:^10.4f} | {metrics['acc']:^10.4f} | {metrics['f1']:^10.4f} | {metrics['prec']:^10.4f} | {metrics['rec']:^10.4f}")
 
     return history
 
+# def evaluate_model(model, loader, noise_std=0.0):
+#     model.eval()
+#     correct = 0
+#     total = 0
+#     with torch.no_grad():
+#         for images, labels in loader:
+#             images, labels = images.to(device), labels.to(device)
+#
+#             if noise_std > 0:
+#                 images = add_gauss_noise(images, noise_std)
+#
+#             outputs = model(images)
+#             _, predicted = torch.max(outputs.data, 1)
+#             total += labels.size(0)
+#             correct += (predicted == labels).sum().item()
+#     return correct / total
 
 def evaluate_model(model, loader, noise_std=0.0):
     model.eval()
-    correct = 0
-    total = 0
+    all_preds = []
+    all_targets = []
+
     with torch.no_grad():
         for images, labels in loader:
             images, labels = images.to(device), labels.to(device)
 
+            # Dodawanie szumu (jeśli dotyczy)
             if noise_std > 0:
                 images = add_gauss_noise(images, noise_std)
 
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    return correct / total
+
+            # Zbieramy wyniki do list (przenosimy na CPU)
+            all_preds.extend(predicted.cpu().numpy())
+            all_targets.extend(labels.cpu().numpy())
+
+
+    metrics = {
+        'acc': accuracy_score(all_targets, all_preds),
+        'prec': precision_score(all_targets, all_preds, average='macro', zero_division=0),
+        'rec': recall_score(all_targets, all_preds, average='macro', zero_division=0),
+        'f1': f1_score(all_targets, all_preds, average='macro', zero_division=0)
+    }
+
+    return metrics
 
 
 # Creating plots
@@ -174,7 +247,7 @@ def exp_1_arch():
         print(f"Training: {name}")
         train_loader, test_loader = get_data_loaders(batch_size=batch, subset_fraction=1.0)
         model = FMLP(num_layers=layers, hidden_units=neurons)
-        hist = model_training(model, train_loader, test_loader, epochs=10, lr=0.001)
+        hist = train_model(model, train_loader, test_loader, epochs=10, lr=0.001)
         results[name] = hist
 
     plot_results(results, "Architektura i Batch", "exp1_arch_batch.png")
@@ -192,7 +265,7 @@ def exp_2_datasize():
         train_loader, test_loader = get_data_loaders(batch_size=64, subset_fraction=frac)
 
         model = FMLP(num_layers=2, hidden_units=128)
-        hist = model_training(model, train_loader, test_loader, epochs=15, lr=0.001)
+        hist = train_model(model, train_loader, test_loader, epochs=15, lr=0.001)
         results[name] = hist
 
     plot_results(results, "Wpływ Ilości Danych", "exp2_datasize.png")
@@ -207,19 +280,19 @@ def exp_3_noise():
 
     print("Plan A: Train Clean -> Test Noisy")
     model_clean = FMLP(num_layers=2, hidden_units=128)
-    hist_clean = model_training(model_clean, train_loader, test_loader, epochs=10, lr=0.001, train_noise_std=0.0,
+    hist_clean = train_model(model_clean, train_loader, test_loader, epochs=10, lr=0.001, train_noise_std=0.0,
                                 test_noise_std=noise_level)
     results["Train Clean / Test Noisy"] = hist_clean
 
     print("Plan B: Train Noisy -> Test Noisy")
     model_noisy = FMLP(num_layers=2, hidden_units=128)
-    hist_noisy = model_training(model_noisy, train_loader, test_loader, epochs=10, lr=0.001,
+    hist_noisy = train_model(model_noisy, train_loader, test_loader, epochs=10, lr=0.001,
                                 train_noise_std=noise_level, test_noise_std=noise_level)
     results["Train Noisy / Test Noisy"] = hist_noisy
 
     print("Referencja: Train Clean -> Test Clean")
     model_ref = FMLP(num_layers=2, hidden_units=128)
-    hist_ref = model_training(model_ref, train_loader, test_loader, epochs=10, lr=0.001, train_noise_std=0.0,
+    hist_ref = train_model(model_ref, train_loader, test_loader, epochs=10, lr=0.001, train_noise_std=0.0,
                               test_noise_std=0.0)
     results["Reference (Clean/Clean)"] = hist_ref
 
