@@ -189,7 +189,6 @@ def experiments_runner(raw_data, vocab, rnn_type='RNN', hidden_dim=32, max_len=N
 def plot_results(df):
     plt.style.use('ggplot')
 
-
     experiments = df['Experiment'].unique()
 
     plt.figure(figsize=(12, 6))
@@ -197,40 +196,61 @@ def plot_results(df):
         data = df[df['Experiment'] == exp]
         plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
 
-    plt.title('Porownanie dokladnosci (Accuracy) wszystkich eksperymentow')
-    plt.xlabel('Epoka')
-    plt.ylabel('Accuracy')
+    plt.title('Porównanie Dokładności (Accuracy) wszystkich eksperymentów')
+    plt.xlabel('Liczba Epok')
+    plt.ylabel('Dokładność (Accuracy)')
     plt.legend()
     plt.grid(True)
     plt.savefig('wyniki_wszystkie_accuracy.png')
     plt.show()
 
-    #Plot RNN vs LSTM (Only Exp 1)
     plt.figure(figsize=(10, 5))
     target_exps = ["Proste RNN", "LSTM"]
     for exp in target_exps:
         if exp in experiments:
             data = df[df['Experiment'] == exp]
             plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
-    plt.title('RNN vs LSTM')
+
+    plt.title('Porównanie typu warstwy rekurencyjnej: RNN vs LSTM')
+    plt.xlabel('Liczba Epok')
+    plt.ylabel('Dokładność (Accuracy)')
     plt.legend()
+    plt.grid(True)
     plt.savefig('wyniki_rnn_vs_lstm.png')
     plt.show()
 
-    # Sequention length plot (Exp 3)
     plt.figure(figsize=(10, 5))
     target_exps = ["Pelna dlugosc (Dynamic Padding)", "Obciecie do 20 slow", "Obciecie do 50 slow"]
     for exp in target_exps:
         if exp in experiments:
             data = df[df['Experiment'] == exp]
             plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
-    plt.title('Wplyw przycinania sekwencji (Truncation)')
+
+    plt.title('Wpływ przycinania sekwencji (Truncation)')
+    plt.xlabel('Liczba Epok')
+    plt.ylabel('Dokładność (Accuracy)')
     plt.legend()
+    plt.grid(True)
     plt.savefig('wyniki_truncation.png')
     plt.show()
 
+    plt.figure(figsize=(10, 5))
+    target_exps = ["LSTM Dim 16", "LSTM Dim 64"]
+    for exp in target_exps:
+        if exp in experiments:
+            data = df[df['Experiment'] == exp]
+            plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
+
+    plt.title('Porównanie wymiaru warstwy rekurencyjnej (Hidden Dimension)')
+    plt.xlabel('Liczba Epok')
+    plt.ylabel('Dokładność (Accuracy)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('wyniki_hidden_dim_comparison.png')
+    plt.show()
+
+
 if __name__ == "__main__":
-    print("Przygotowanie danych")
     raw_data = raw_data_loader(FILENAME)
     vocab = build_vocab(raw_data, VOCAB_SIZE)
     print(f"Rozmiar danych: {len(raw_data)} recenzji")
