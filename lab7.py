@@ -25,15 +25,14 @@ print(f"Used CPU or GPU (CUDA): {DEVICE}")
 
 def raw_data_loader(filename):
     if not os.path.exists("aclImdb"):
-        print(f"Rozpakowywanie {filename}...")
         with tarfile.open(filename, "r:gz") as tar:
             tar.extractall()
 
-    print("Wczytywanie plikow tekstowych...")
     data = []
 
 
     for split in ['train', 'test']:
+        # adding binary names (positive - 1, negative - 0_
         for label_name, label_val in [('pos', 1), ('neg', 0)]:
             path = os.path.join('aclImdb', split, label_name)
             files = os.listdir(path)
@@ -47,19 +46,23 @@ def raw_data_loader(filename):
 
 
 def build_vocab(data, vocab_size):
-    print("Tworzenie slownika...")
+    # counting how many times particular word appeared
     counter = Counter()
     for text, _ in data:
         words = re.findall(r'\w+', text.lower())
         counter.update(words)
 
     most_common = counter.most_common(vocab_size - 2)
+    #  PAD for filling empty spaces
+    # UNK for words that doesn't appear in vocabulary
     vocabulary = {'<PAD>': 0, '<UNK>': 1}
+    # assigning numbers to particular words
     for idx, (word, _) in enumerate(most_common, start=2):
         vocabulary[word] = idx
 
     return vocabulary
 
+# converting sentence to numbers list
 def convert_text_to_indices(text, vocab):
     words = re.findall(r'\w+', text.lower())
     return [vocab.get(w, 1) for w in words]
@@ -91,6 +94,7 @@ def dataloader_creator(raw_data, vocab, max_len_truncate=None, batch_size=64):
 
     def collate_fn(batch):
         texts, labels = zip(*batch)
+        #  filling empty spaces in batches with zeros so GPU can use this matrix
         texts_padded = pad_sequence(texts, batch_first=True, padding_value=0)
         labels = torch.stack(labels)
         return texts_padded, labels
@@ -118,6 +122,7 @@ class RecurrentModel(nn.Module):
 
         if self.rnn_type == 'LSTM':
             output, (hidden, cell) = self.rnn(embedded)
+            # taking state from the last step. It should contain context of review in it
             final_hidden = hidden[-1]
         else:
             output, hidden = self.rnn(embedded)
@@ -233,21 +238,20 @@ if __name__ == "__main__":
 
     all_results = []
 
-    # Experiment 1: RNN vs LSTM
+
     print("\n Experiment 1: RNN vs LSTM")
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='RNN', hidden_dim=32, max_len=None,
                                           exp_name="Proste RNN"))
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=None,
                                           exp_name="LSTM"))
 
-    # Experiment 2: Size of recursion layer
+
     print("\nExperiment 2: Layer size")
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=16, max_len=None,
                                           exp_name="LSTM Dim 16"))
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=64, max_len=None,
                                           exp_name="LSTM Dim 64"))
 
-    # Experiment 3: Influence of truncation
     print("\nExperiment 3: Sequence length")
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=None,
                                           exp_name="Pelna dlugosc (Dynamic Padding)"))
@@ -263,11 +267,10 @@ if __name__ == "__main__":
 
     csv_filename = 'wyniki_eksperymentow.csv'
     df.to_csv(csv_filename, index=False)
-    print(f"Wyniki zapisano do pliku: {csv_filename}")
 
 
     plot_results(df)
-    print("Utworzono i zapisano wykresy")
+
 
 
 

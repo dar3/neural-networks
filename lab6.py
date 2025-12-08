@@ -18,7 +18,7 @@ class FlexibleCNN(nn.Module):
     def __init__(self, out_channels, kernel_size, pool_size, num_classes=10):
         super(FlexibleCNN, self).__init__()
 
-
+        # in_channels 1 because it is black-white image
         self.conv = nn.Conv2d(
             in_channels=1,
             out_channels=out_channels,
@@ -34,6 +34,7 @@ class FlexibleCNN(nn.Module):
         # Flattening data from (Batch, Channels, H, W) to (Batch, Features)
         self.flatten = nn.Flatten()
 
+        # linear classificator
         self.fc = nn.LazyLinear(num_classes)
 
     def forward(self, x):
