@@ -8,25 +8,19 @@ from sklearn.preprocessing import StandardScaler
 from ucimlrepo import fetch_ucirepo
 
 
-# Warstwy i aktywacje
+# Layers and activations
 
 
 class Linear:
     def __init__(self, in_dim, out_dim, weight_std=0.01, seed=None):
         rng = np.random.default_rng(seed)
-        # waga wybierana losowo z rozkladu normalnego
         self.W = rng.normal(0.0, weight_std, size=(in_dim, out_dim))
-        # bias inicjalizujemy zerami
         self.b = np.zeros(out_dim)
-        # gradienty dw db do aktualizacji wag w backpropagation
         self.dW = np.zeros_like(self.W)
         self.db = np.zeros_like(self.b)
-        # zapisywanie cache dla backward
         self.cache_x = None
 
 
-    # obliczanie wyjscia warstwy
-    # macierz wej. x * wagi w + bias
     def forward(self, x):
         self.cache_x = x
         return x @ self.W + self.b
@@ -34,14 +28,11 @@ class Linear:
     def backward(self, d_out):
         x = self.cache_x
         m = x.shape[0]
-        # obliczanie gradientow dw, db (gradient wag i biasow)
         self.dW = (x.T @ d_out) / m
         self.db = np.mean(d_out, axis=0)
-        # przekazywanie gradientu do poprzedniej warstwy
         dx = d_out @ self.W.T
         return dx
 
-    # aktualizacja wag i biasow za pomoca SGD
     def step(self, lr):
         self.W -= lr * self.dW
         self.b -= lr * self.db
@@ -53,11 +44,9 @@ class ReLU:
 
     def forward(self, x):
         self.cache = x
-        # odcina wartosci ujemne
         return np.maximum(0, x)
 
-    # przekazuje gradient tam gdzie x > 0
-    # jesli neuron otrzymuje same wartości ≤ 0, przestaje się uczyć (gradient zawsze 0).
+
     def backward(self, d_out):
         x = self.cache
         dx = d_out * (x > 0).astype(float)
@@ -70,21 +59,18 @@ class SigmoidAct:
         self.cache = None
 
     def forward(self, x):
-        # sigmoid zabezpieczony przed overflow
+        # protection from overflow for sigmoid
         z = np.clip(x, -500, 500)
         out = 1.0 / (1.0 + np.exp(-z))
         self.cache = out
         return out
 
-    # mnozenie gradientu przez poch. sigmoidu
     def backward(self, d_out):
         s = self.cache
         return d_out * (s * (1 - s))
 
 
-# jakakolwiek f.
-# forward  liczy wyjscie
-# backward liczy gradient
+
 class CustActFunction:
 
     def __init__(self, func, func_grad):
@@ -105,15 +91,13 @@ class CustActFunction:
 
 # Loss (binary cross-entropy)
 
-# obliczanie straty BCE dla klasyfikacji binarnej
-# np.clip zab. przed log(0)
+
 def bin_cross_entr_loss(y_true, y_prob, eps=1e-15):
     y_prob = np.clip(y_prob, eps, 1 - eps)
     loss = - np.mean(y_true * np.log(y_prob) + (1 - y_true) * np.log(1 - y_prob))
     return loss
 
 
-# liczymy gradient straty wzgledem predykcji
 def bin_cross_entr_grad(y_true, y_prob, eps=1e-15):
     y_prob = np.clip(y_prob, eps, 1 - eps)
     grad = (y_prob - y_true) / (y_prob * (1 - y_prob))
@@ -121,24 +105,19 @@ def bin_cross_entr_grad(y_true, y_prob, eps=1e-15):
 
 
 
-# Model MLP (list of layers)
 
 
 class MLP:
     def __init__(self, input_dim, layer_sizes, weight_std=0.01, seed=0, activation='relu'):
 
-        # lista obiektow
         self.layers = []
         self.seed = seed
         rng = np.random.default_rng(seed)
-        # lista rozmiarow warstw
         dims = [input_dim] + list(layer_sizes)
         for i in range(len(dims) - 1):
-            # warstwa liniowa dla kazdej pary
             in_d, out_d = dims[i], dims[i + 1]
             layer = Linear(in_d, out_d, weight_std=weight_std, seed=int(rng.integers(1e9)))
             self.layers.append(layer)
-            # dod. fun. aktywacji do wszystkich bez ostat. warstwy
             if i < len(dims) - 2:
                 if isinstance(activation, tuple) and len(activation) == 2:
                     func, func_grad = activation
@@ -153,10 +132,8 @@ class MLP:
                 else:
                     raise ValueError(f"Unsupported activation type: {type(activation)}")
 
-        # fun. aktyw. ostatniej warstwy
         self.output_activation = SigmoidAct()
 
-    # przeprowadza dane przez wszystkie warstwy
     def forward(self, X):
         out = X
         for layer in self.layers:
@@ -171,7 +148,6 @@ class MLP:
             dout = layer.backward(dout)
 
     def step(self, lr):
-        # Aktualizuje parametry (W, b) tylko w warstwach typu Linear
         for layer in self.layers:
             if isinstance(layer, Linear):
                 layer.step(lr)
@@ -188,7 +164,6 @@ def data_loader(normalize=True, random_state=42):
     hd = fetch_ucirepo(id=45)
     X = hd.data.features
     y = hd.data.targets['num']
-    # binaryzacja
     y_bin = (y > 0).astype(int)
     dataset = pd.concat([X, y_bin.rename('target')], axis=1)
     categorical_cols = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
@@ -230,24 +205,23 @@ def train_model(model, X_train, y_train, X_val=None, y_val=None,
 
 
     for epoch in range(1, max_epochs + 1):
-        # mieszanie danych w kaz. epoce na poczatku
         perm = rng.permutation(m)
         X_sh = X_train[perm]
         y_sh = y_train[perm]
-        # iteracja po mini-batches
+
         for start in range(0, m, batch_size):
             end = min(start + batch_size, m)
             xb = X_sh[start:end]
             yb = y_sh[start:end]
-            # forward
-            probs = model.forward(xb)  # shape (batch,)
-            # obliczanie gradientu bledu
+
+            probs = model.forward(xb)
+
             dLoss_dp = (probs - yb)
             # backward
             model.backward(dLoss_dp)
-            # aktualizacja wag
+
             model.step(lr)
-        # koniec epoki. Obliczanie i zapisywanie straty.
+
         probs_train = model.forward(X_train)
         loss = bin_cross_entr_loss(y_train, probs_train)
         loss_history.append(loss)
@@ -260,7 +234,7 @@ def train_model(model, X_train, y_train, X_val=None, y_val=None,
             if X_val is not None:
                 msg += f", val_loss={val_loss:.6f}"
             print(msg)
-        # kryt. zatrzymania. Jesli zm. tolerancji mniejsza niż tolerancja to konczy trening
+        # stop criterium
         if epoch > 1 and abs(loss_history[-2] - loss_history[-1]) < tol:
             if verbose:
                 print(
@@ -269,7 +243,6 @@ def train_model(model, X_train, y_train, X_val=None, y_val=None,
     return {'model': model, 'loss_history': loss_history, 'val_history': val_history, 'epochs': epoch}
 
 
-# tworzy model, trenuje go, liczy metr. na tren i test.
 def run_experiment(hidden_sizes=None, n_layers=1, lr=0.01, weight_std=0.01,
                    normalize=True, activation: Union[str, Tuple[Callable, Callable]] = 'relu', batch_size=32,
                    max_epochs=200, tol=1e-6, seed=0):
@@ -368,7 +341,6 @@ def multi_testing():
 
     df = pd.DataFrame(results)
     df.to_csv("experiments_results.csv", index=False)
-    print("Wyniki zapisane do experiments_results.csv")
     return df
 
 

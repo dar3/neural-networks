@@ -28,25 +28,21 @@ class FlexibleCNN(nn.Module):
 
         self.relu = nn.ReLU()
 
-        # Max Pooling layer
         self.pool = nn.MaxPool2d(kernel_size=pool_size)
 
         # Flattening data from (Batch, Channels, H, W) to (Batch, Features)
         self.flatten = nn.Flatten()
 
-        # linear classificator
         self.fc = nn.LazyLinear(num_classes)
 
     def forward(self, x):
-        # Going through convolusion - activation - pooling
+        # Going through convolusion
         x = self.conv(x)
         x = self.relu(x)
         x = self.pool(x)
 
 
         x = self.flatten(x)
-
-        # Classification
         x = self.fc(x)
         return x
 
@@ -97,8 +93,6 @@ def evaluate(model, loader, criterion, noise_std):
     with torch.no_grad():
         for data, target in loader:
             data, target = data.to(device), target.to(device)
-
-            # Adding noised data
             data = add_gaussian_noise(data, noise_std)
 
             output = model(data)
@@ -111,7 +105,6 @@ def evaluate(model, loader, criterion, noise_std):
     return avg_loss, accuracy
 
 
-# Preparing data
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))  # Normalization for MNIST
@@ -157,33 +150,31 @@ if __name__ == "__main__":
 
     scenarios = [
         {
-            "name": "Brak szumu (Referencja)",
+            "name": "No noise (For reference)",
             "params": (16, 3, 2, 0.0, 0.0)
         },
         {
-            "name": "Szum tylko w tescie",
+            "name": "Noise only in test",
             "params": (16, 3, 2, 0.0, noise_level)
         },
         {
-            "name": "Szum w treningu i tescie",
+            "name": "Noise in train and test",
             "params": (16, 3, 2, noise_level, noise_level)
         },
 
         {
-            "name": "Duzy Kernel (5x5)",
+            "name": "Big Kernel (5x5)",
             "params": (16, 5, 2, 0.0, 0.0)
         },
 
-        # 32 kanaly, filtr 3x3, standardowy pooling 2x2
         {
-            "name": "32 Kanały, Pool 2x2",
+            "name": "32 Channels, Pool 2x2",
             "params": (32, 3, 2, 0.0, 0.0)
 
         },
 
-        # 32 kanaly, filtr 3x3, bardziej restrykcyjny pooling 3x3
         {
-            "name": "32 Kanały, Pool 3x3",
+            "name": "32 Channels, Pool 3x3",
             "params": (32, 3, 3, 0.0, 0.0)
 
         },
@@ -229,16 +220,16 @@ if __name__ == "__main__":
                 ]
                 writer.writerow(row)
 
-    print(f"\nWyniki zapisano: {csv_name}")
+
 
 
     plt.figure(figsize=(10, 6))
     for name, acc_list in plot_data.items():
         plt.plot(range(1, len(acc_list) + 1), acc_list, marker='o', label=name)
 
-    plt.title('Porownanie dokladnosci modeli (Test Accuracy)')
-    plt.xlabel('Epoka')
-    plt.ylabel('Dokladnosc w %')
+    plt.title('Comparing model accuarcy (Test Accuracy)')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy w %')
     plt.grid(True)
     plt.legend()
     plt.savefig("wykres_porownawczy_1.png")

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 FILENAME = 'data/imdb/aclImdb_v1.tar.gz'
 VOCAB_SIZE = 10000  # limiting dictionary to 10K most frequent words
 BATCH_SIZE = 64
-EPOCHS = 12
+EPOCHS = 30
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print(f"Used CPU or GPU (CUDA): {DEVICE}")
@@ -32,7 +32,7 @@ def raw_data_loader(filename):
 
 
     for split in ['train', 'test']:
-        # adding binary names (positive - 1, negative - 0_
+        # adding binary names (positive - 1, negative - 0)
         for label_name, label_val in [('pos', 1), ('neg', 0)]:
             path = os.path.join('aclImdb', split, label_name)
             files = os.listdir(path)
@@ -81,7 +81,6 @@ class RawIMDBDataset(Dataset):
         text, label = self.data[idx]
         indices = convert_text_to_indices(text, self.vocab)
 
-        # Truncation
         if self.max_len:
             indices = indices[:self.max_len]
 
@@ -102,7 +101,6 @@ def dataloader_creator(raw_data, vocab, max_len_truncate=None, batch_size=64):
     return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
 
-# Defininf RNN and LSTM
 class RecurrentModel(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, output_dim, rnn_type='RNN'):
         super(RecurrentModel, self).__init__()
@@ -122,7 +120,6 @@ class RecurrentModel(nn.Module):
 
         if self.rnn_type == 'LSTM':
             output, (hidden, cell) = self.rnn(embedded)
-            # taking state from the last step. It should contain context of review in it
             final_hidden = hidden[-1]
         else:
             output, hidden = self.rnn(embedded)
@@ -196,42 +193,42 @@ def plot_results(df):
         data = df[df['Experiment'] == exp]
         plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
 
-    plt.title('Porównanie Dokładności (Accuracy) wszystkich eksperymentów')
-    plt.xlabel('Liczba Epok')
-    plt.ylabel('Dokładność (Accuracy)')
+    plt.title('Comparing Accuracy of all experimants')
+    plt.xlabel('Epochs amount')
+    plt.ylabel('Accuracy')
     plt.legend()
     plt.grid(True)
     plt.savefig('wyniki_wszystkie_accuracy.png')
     plt.show()
 
     plt.figure(figsize=(10, 5))
-    target_exps = ["Proste RNN", "LSTM"]
+    target_exps = ["Simple RNN", "LSTM"]
     for exp in target_exps:
         if exp in experiments:
             data = df[df['Experiment'] == exp]
             plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
 
-    plt.title('Porównanie typu warstwy rekurencyjnej: RNN vs LSTM')
-    plt.xlabel('Liczba Epok')
-    plt.ylabel('Dokładność (Accuracy)')
+    plt.title('Comparing type of recursion layer: RNN vs LSTM')
+    plt.xlabel('Epochs amount')
+    plt.ylabel('Accuracy')
     plt.legend()
     plt.grid(True)
-    plt.savefig('wyniki_rnn_vs_lstm.png')
+    plt.savefig('results_rnn_vs_lstm.png')
     plt.show()
 
     plt.figure(figsize=(10, 5))
-    target_exps = ["Pelna dlugosc (Dynamic Padding)", "Obciecie do 20 slow", "Obciecie do 50 slow"]
+    target_exps = ["Full length (Dynamic Padding)", "Truncated to 20 words", "Truncated to 50 words"]
     for exp in target_exps:
         if exp in experiments:
             data = df[df['Experiment'] == exp]
             plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
 
-    plt.title('Wpływ przycinania sekwencji (Truncation)')
-    plt.xlabel('Liczba Epok')
-    plt.ylabel('Dokładność (Accuracy)')
+    plt.title('Influence of truncation ')
+    plt.xlabel('Epochs amount')
+    plt.ylabel('Accuracy')
     plt.legend()
     plt.grid(True)
-    plt.savefig('wyniki_truncation.png')
+    plt.savefig('results_truncation.png')
     plt.show()
 
     plt.figure(figsize=(10, 5))
@@ -241,27 +238,27 @@ def plot_results(df):
             data = df[df['Experiment'] == exp]
             plt.plot(data['Epoch'], data['Accuracy'], marker='o', label=exp)
 
-    plt.title('Porównanie wymiaru warstwy rekurencyjnej (Hidden Dimension)')
-    plt.xlabel('Liczba Epok')
-    plt.ylabel('Dokładność (Accuracy)')
+    plt.title('Hidden Dimension Comparison')
+    plt.xlabel('Number of Epochs')
+    plt.ylabel('Accuracy')
     plt.legend()
     plt.grid(True)
-    plt.savefig('wyniki_hidden_dim_comparison.png')
+    plt.savefig('results_hidden_dim_comparison.png')
     plt.show()
 
 
 if __name__ == "__main__":
     raw_data = raw_data_loader(FILENAME)
     vocab = build_vocab(raw_data, VOCAB_SIZE)
-    print(f"Rozmiar danych: {len(raw_data)} recenzji")
-    print(f"Rozmiar slownika: {len(vocab)} slow")
+    print(f"Data size: {len(raw_data)} reviews")
+    print(f"Vocabulary size: {len(vocab)} words")
 
     all_results = []
 
 
     print("\n Experiment 1: RNN vs LSTM")
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='RNN', hidden_dim=32, max_len=None,
-                                          exp_name="Proste RNN"))
+                                          exp_name="Simple RNN"))
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=None,
                                           exp_name="LSTM"))
 
@@ -274,18 +271,18 @@ if __name__ == "__main__":
 
     print("\nExperiment 3: Sequence length")
     all_results.extend(experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=None,
-                                          exp_name="Pelna dlugosc (Dynamic Padding)"))
+                                          exp_name="Full length (Dynamic Padding)"))
     all_results.extend(
         experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=20,
-                           exp_name="Obciecie do 20 slow"))
+                           exp_name="Truncated to 20 words"))
     all_results.extend(
         experiments_runner(raw_data, vocab, rnn_type='LSTM', hidden_dim=32, max_len=50,
-                           exp_name="Obciecie do 50 slow"))
+                           exp_name="Truncated to 50 words"))
 
 
     df = pd.DataFrame(all_results)
 
-    csv_filename = 'wyniki_eksperymentow.csv'
+    csv_filename = 'experiment_results.csv'
     df.to_csv(csv_filename, index=False)
 
 
